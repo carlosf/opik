@@ -1,21 +1,20 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useMatches, useNavigate } from "@tanstack/react-router";
 import copy from "clipboard-copy";
 import sortBy from "lodash/sortBy";
 import {
   Book,
+  Check,
   Copy,
   GraduationCap,
   Grip,
   KeyRound,
   LogOut,
-  Moon,
   Settings,
   Shield,
-  Sun,
   UserPlus,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import QuickstartDialog from "@/components/pages-shared/onboarding/QuickstartDialog/QuickstartDialog";
 import TooltipWrapper from "@/components/shared/TooltipWrapper/TooltipWrapper";
@@ -35,11 +34,11 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useTheme } from "@/components/theme-provider";
 import { useToast } from "@/components/ui/use-toast";
+import { useThemeOptions } from "@/hooks/useThemeOptions";
 import { APP_VERSION } from "@/constants/app";
 import { buildDocsUrl, cn, maskAPIKey } from "@/lib/utils";
-import useAppStore, { useSetAppUser } from "@/store/AppStore";
+import useAppStore from "@/store/AppStore";
 import api from "./api";
 import { Organization, ORGANIZATION_ROLE_TYPE } from "./types";
 import useOrganizations from "./useOrganizations";
@@ -53,11 +52,15 @@ import useInviteMembersURL from "@/plugins/comet/useInviteMembersURL";
 
 const UserMenu = () => {
   const navigate = useNavigate();
+  const matches = useMatches();
   const { toast } = useToast();
-  const { setTheme } = useTheme();
+  const { theme, themeOptions, CurrentIcon, handleThemeSelect } =
+    useThemeOptions();
   const [openQuickstart, setOpenQuickstart] = useState(false);
   const workspaceName = useAppStore((state) => state.activeWorkspaceName);
-  const setAppUser = useSetAppUser();
+  const hideUpgradeButton = matches.some(
+    (match) => match.staticData?.hideUpgradeButton,
+  );
 
   const { data: user } = useUser();
   const { data: organizations, isLoading } = useOrganizations({
@@ -85,15 +88,6 @@ const UserMenu = () => {
   );
 
   const inviteMembersURL = useInviteMembersURL();
-
-  useEffect(() => {
-    if (user && user.loggedIn) {
-      setAppUser({
-        apiKey: user.apiKeys[0],
-        userName: user.userName,
-      });
-    }
-  }, [user, setAppUser]);
 
   if (
     !user ||
@@ -155,7 +149,7 @@ const UserMenu = () => {
   };
 
   const renderUpgradeButton = () => {
-    if (isOrganizationAdmin && !isAcademic) {
+    if (isOrganizationAdmin && !isAcademic && !hideUpgradeButton) {
       return (
         <a
           href={buildUrl(
@@ -378,31 +372,27 @@ const UserMenu = () => {
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger className="cursor-pointer">
-                <Sun className="mr-2 size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                <Moon className="absolute mr-2 size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              <DropdownMenuSubTrigger className="flex cursor-pointer items-center">
+                <CurrentIcon className="mr-2 size-4" />
                 <span>Theme</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
                 <DropdownMenuSubContent>
-                  <DropdownMenuItem
-                    className="cursor-pointer"
-                    onClick={() => setTheme("light")}
-                  >
-                    Light
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="cursor-pointer"
-                    onClick={() => setTheme("dark")}
-                  >
-                    Dark
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="cursor-pointer"
-                    onClick={() => setTheme("system")}
-                  >
-                    System
-                  </DropdownMenuItem>
+                  {themeOptions.map(({ value, label, icon: Icon }) => (
+                    <DropdownMenuItem
+                      key={value}
+                      className="cursor-pointer"
+                      onClick={() => handleThemeSelect(value)}
+                    >
+                      <div className="relative flex w-full items-center pl-6">
+                        {theme === value && (
+                          <Check className="absolute left-0 size-4" />
+                        )}
+                        <Icon className="mr-2 size-4" />
+                        <span>{label}</span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>
             </DropdownMenuSub>

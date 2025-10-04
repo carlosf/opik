@@ -1,5 +1,6 @@
 package com.comet.opik.domain.threads;
 
+import com.comet.opik.api.FeedbackScore;
 import com.comet.opik.api.TraceThread;
 import com.comet.opik.api.TraceThreadSampling;
 import com.comet.opik.api.TraceThreadStatus;
@@ -21,6 +22,7 @@ import jakarta.ws.rs.NotFoundException;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -57,7 +59,7 @@ public interface TraceThreadService {
 
     Mono<Void> openThread(UUID projectId, String threadId);
 
-    Mono<Void> closeThread(UUID projectId, String threadId);
+    Mono<Void> closeThreads(UUID projectId, Set<String> threadIds);
 
     Mono<UUID> getOrCreateThreadId(UUID projectId, String threadId);
 
@@ -105,7 +107,8 @@ class TraceThreadServiceImpl implements TraceThreadService {
                     Instant lastUpdatedAt = threadIdAndLastUpdateAt.getValue();
 
                     return traceThreadIdService.getOrCreateTraceThreadId(workspaceId, projectId, threadId)
-                            .map(traceThreadId -> mapToModel(traceThreadId, userName, lastUpdatedAt));
+                            .flatMap(traceThreadId -> mapToModelWithExecutionData(traceThreadId, userName,
+                                    lastUpdatedAt, projectId));
                 }));
     }
 
@@ -170,9 +173,45 @@ class TraceThreadServiceImpl implements TraceThreadService {
                 LOCK_DURATION);
     }
 
-    private TraceThreadModel mapToModel(TraceThreadIdModel traceThread, String userName, Instant lastUpdatedAt) {
-        return TraceThreadMapper.INSTANCE.mapFromThreadIdModel(traceThread, userName, TraceThreadStatus.ACTIVE,
-                lastUpdatedAt);
+    private Mono<TraceThreadModel> mapToModelWithExecutionData(TraceThreadIdModel traceThread, String userName,
+            Instant lastUpdatedAt, UUID projectId) {
+        // Fetch execution time data reactively from TraceService
+        return traceService.getThreadById(traceThread.projectId(), traceThread.threadId())
+                .map(enrichedThread -> {
+                    log.info("Found execution time data for thread '{}' - duration: '{}' ms",
+                            traceThread.threadId(), enrichedThread.duration());
+
+                    return TraceThreadModel.builder()
+                            .id(traceThread.id())
+                            .projectId(traceThread.projectId())
+                            .threadId(traceThread.threadId())
+                            .status(TraceThreadStatus.ACTIVE)
+                            .createdBy(traceThread.createdBy())
+                            .lastUpdatedBy(userName)
+                            .createdAt(traceThread.createdAt())
+                            .lastUpdatedAt(lastUpdatedAt)
+                            .tags(Set.of())
+                            .sampling(Map.of())
+                            .scoredAt(null)
+                            .startTime(enrichedThread.startTime())
+                            .endTime(enrichedThread.endTime())
+                            .duration(enrichedThread.duration())
+                            .firstMessage(enrichedThread.firstMessage() != null
+                                    ? enrichedThread.firstMessage().toString()
+                                    : null)
+                            .lastMessage(enrichedThread.lastMessage() != null
+                                    ? enrichedThread.lastMessage().toString()
+                                    : null)
+                            .numberOfMessages(enrichedThread.numberOfMessages())
+                            .feedbackScores(enrichedThread.feedbackScores() != null
+                                    ? enrichedThread.feedbackScores().stream()
+                                            .collect(Collectors.toMap(FeedbackScore::name,
+                                                    score -> score.value().intValue()))
+                                    : Map.of())
+                            .build();
+                })
+                .onErrorReturn(TraceThreadMapper.INSTANCE.mapFromThreadIdModel(traceThread, userName,
+                        TraceThreadStatus.ACTIVE, lastUpdatedAt));
     }
 
     private Mono<Void> saveTraceThreads(UUID projectId, List<TraceThreadModel> traceThreads) {
@@ -236,6 +275,16 @@ class TraceThreadServiceImpl implements TraceThreadService {
 
     private Mono<Map.Entry<Long, List<TraceThreadModel>>> saveThreads(List<TraceThreadModel> traceThreads,
             List<TraceThreadModel> existingThreads) {
+
+        log.info("saveThreads - Input threads count: {}, Existing threads count: {}", traceThreads.size(),
+                existingThreads.size());
+
+        // Debug log the input thread data
+        for (TraceThreadModel inputThread : traceThreads) {
+            log.info("Input thread '{}' - duration: '{}', startTime: '{}', endTime: '{}'",
+                    inputThread.id(), inputThread.duration(), inputThread.startTime(), inputThread.endTime());
+        }
+
         Map<UUID, TraceThreadModel> threadModelMap = existingThreads.stream()
                 .collect(Collectors.toMap(TraceThreadModel::id, Function.identity()));
 
@@ -244,11 +293,27 @@ class TraceThreadServiceImpl implements TraceThreadService {
                     TraceThreadModel existingThread = threadModelMap.get(thread.id());
 
                     if (existingThread != null) {
-                        // Update existing thread with new values
+                        // Update existing thread with new values, preserving execution time data from input thread
                         return existingThread.toBuilder()
                                 .status(thread.status())
                                 .lastUpdatedBy(thread.lastUpdatedBy())
                                 .lastUpdatedAt(thread.lastUpdatedAt())
+                                .startTime(thread.startTime() != null ? thread.startTime() : existingThread.startTime())
+                                .endTime(thread.endTime() != null ? thread.endTime() : existingThread.endTime())
+                                .duration(thread.duration() != null ? thread.duration() : existingThread.duration())
+                                .feedbackScores(thread.feedbackScores() != null
+                                        ? thread.feedbackScores()
+                                        : existingThread.feedbackScores())
+                                .firstMessage(thread.firstMessage() != null
+                                        ? thread.firstMessage()
+                                        : existingThread.firstMessage())
+                                .lastMessage(thread.lastMessage() != null
+                                        ? thread.lastMessage()
+                                        : existingThread.lastMessage())
+                                .numberOfMessages(thread.numberOfMessages() != null
+                                        ? thread.numberOfMessages()
+                                        : existingThread.numberOfMessages())
+                                .tags(thread.tags() != null ? thread.tags() : existingThread.tags())
                                 .scoredAt(null) // Reset scoredAt to null for reopened threads
                                 .build();
                     }
@@ -304,9 +369,9 @@ class TraceThreadServiceImpl implements TraceThreadService {
                         return Mono.just((long) threads.size());
                     }
 
-                    List<String> threadIds = threads.stream()
+                    Set<String> threadIds = threads.stream()
                             .map(TraceThreadModel::threadId)
-                            .toList();
+                            .collect(Collectors.toSet());
 
                     return traceThreadDAO.closeThread(projectId, threadIds)
                             .doOnSuccess(count -> log.info(
@@ -369,16 +434,18 @@ class TraceThreadServiceImpl implements TraceThreadService {
     }
 
     @Override
-    public Mono<Void> closeThread(@NonNull UUID projectId, @NonNull String threadId) {
-        List<String> threadIds = List.of(threadId);
-        return verifyAndCreateThreadIfNeed(projectId, threadId)
-                // Once we have all, we can close the thread
+    public Mono<Void> closeThreads(@NonNull UUID projectId, @NonNull Set<String> threadIds) {
+        if (CollectionUtils.isEmpty(threadIds)) {
+            return Mono.empty();
+        }
+
+        return verifyAndCreateThreadsIfNeeded(projectId, threadIds)
                 .then(Mono.defer(() -> lockService.executeWithLockCustomExpire(
                         new LockService.Lock(projectId, TraceThreadService.THREADS_LOCK),
                         Mono.defer(() -> traceThreadDAO.closeThread(projectId, threadIds))
-                                .doOnSuccess(
-                                        count -> log.info("Closed count '{}' for threadId '{}' and  projectId: '{}'",
-                                                count, threadId, projectId))
+                                .doOnSuccess(count -> log.info(
+                                        "Closed count '{}' for threadIds '{}' and projectId: '{}'",
+                                        count, threadIds, projectId))
                                 .then(Mono.defer(() -> traceThreadDAO.findThreadsByProject(1, threadIds.size(),
                                         TraceThreadCriteria.builder()
                                                 .projectId(projectId)
@@ -388,25 +455,64 @@ class TraceThreadServiceImpl implements TraceThreadService {
                         LOCK_DURATION)));
     }
 
-    private Mono<UUID> verifyAndCreateThreadIfNeed(UUID projectId, String threadId) {
-        return traceService.getThreadById(projectId, threadId)
-                .switchIfEmpty(Mono.error(new NotFoundException("Thread '%s' not found:".formatted(threadId))))
+    private Mono<Void> verifyAndCreateThreadsIfNeeded(UUID projectId, Set<String> threadIds) {
+        if (CollectionUtils.isEmpty(threadIds)) {
+            return Mono.empty();
+        }
+
+        return verifyAndCreateThreadIfNeed(projectId, threadIds);
+    }
+
+    private Mono<Void> verifyAndCreateThreadIfNeed(UUID projectId, Set<String> threadIds) {
+        return traceService.getMinimalThreadInfoByIds(projectId, threadIds)
+                .flatMap(existingThreads -> validateIfAllThreadsExist(threadIds, existingThreads))
+                .flatMapMany(Flux::fromIterable)
                 // If the trace thread exists on the trace table, let's check if it has a trace thread model id
-                .flatMap(traceThread -> getOrCreateThreadId(projectId, threadId)
-                        .map(threadModelId -> traceThread.toBuilder().threadModelId(threadModelId).build()))
+                .flatMap(traceThread -> {
+                    if (traceThread.threadModelId() != null) {
+                        return Mono.just(traceThread);
+                    }
+                    // If it does not have a trace thread model id, create a new one
+                    return getOrCreateThreadId(projectId, traceThread.id())
+                            .map(id -> traceThread.toBuilder().threadModelId(id).build());
+                })
                 // If it has a trace thread model id, check if the trace thread entity exists in the database
                 .flatMap(traceThread -> traceThreadDAO.findByThreadModelId(traceThread.threadModelId(), projectId)
                         .map(TraceThreadModel::id)
                         //If it does not exist, create a new one
                         .switchIfEmpty(Mono.deferContextual(ctx -> {
                             String userName = ctx.get(RequestContext.USER_NAME);
-                            return createTraceThread(projectId, threadId, traceThread, userName);
-                        })));
+                            return createTraceThread(projectId, traceThread.id(), traceThread, userName);
+                        })))
+                .then();
+    }
+
+    private Mono<List<TraceThread>> validateIfAllThreadsExist(Set<String> threadIds,
+            List<TraceThread> existingThreads) {
+        Set<String> existingThreadIdIds = existingThreads.stream()
+                .map(TraceThread::id)
+                .collect(Collectors.toSet());
+
+        // Find threadIds that do not exist in the trace table
+        Set<String> missingThreadIds = threadIds.stream()
+                .filter(threadId -> !existingThreadIdIds.contains(threadId))
+                .collect(Collectors.toSet());
+
+        if (!missingThreadIds.isEmpty()) {
+            return Mono.error(new NotFoundException("Thread '%s' not found:".formatted(missingThreadIds)));
+        }
+
+        // If all threadIds exist, return any of them to continue the flow
+        return Mono.just(existingThreads);
     }
 
     private Mono<UUID> createTraceThread(UUID projectId, String threadId, TraceThread traceThread, String userName) {
         log.warn("Creating a new thread with id '{}' for threadId '{}' and projectId: '{}'",
                 traceThread.threadModelId(), threadId, projectId);
+
+        // Debug logging to see what execution time data is available
+        log.info("TraceThread DTO data - startTime: '{}', endTime: '{}', duration: '{}' ms",
+                traceThread.startTime(), traceThread.endTime(), traceThread.duration());
 
         List<TraceThreadModel> traceThreads = List.of(TraceThreadModel.builder()
                 .projectId(projectId)
@@ -417,6 +523,19 @@ class TraceThreadServiceImpl implements TraceThreadService {
                 .lastUpdatedBy(userName)
                 .createdAt(traceThread.createdAt())
                 .lastUpdatedAt(Instant.now())
+                .startTime(traceThread.startTime())
+                .endTime(traceThread.endTime())
+                .duration(traceThread.duration())
+                .feedbackScores(traceThread.feedbackScores() != null
+                        ? traceThread.feedbackScores().stream()
+                                .collect(Collectors.toMap(FeedbackScore::name, score -> score.value().intValue()))
+                        : Map.of())
+                .firstMessage(traceThread.firstMessage() != null ? traceThread.firstMessage().toString() : null)
+                .lastMessage(traceThread.lastMessage() != null ? traceThread.lastMessage().toString() : null)
+                .numberOfMessages(traceThread.numberOfMessages())
+                .tags(traceThread.tags())
+                .sampling(Map.of())
+                .scoredAt(null)
                 .build());
 
         return traceThreadDAO

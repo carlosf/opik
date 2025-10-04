@@ -36,6 +36,10 @@ servers:
 tags:
 - name: System usage
   description: System usage related resource
+- name: Alerts
+  description: Alert resources
+- name: Annotation Queues
+  description: Private annotation queue operations
 - name: Attachments
   description: Attachments related resources
 - name: Check
@@ -157,6 +161,407 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TraceCountResponse"
+  /v1/private/alerts:
+    get:
+      tags:
+      - Alerts
+      summary: Find alerts
+      description: Find alerts
+      operationId: findAlerts
+      parameters:
+      - name: page
+        in: query
+        schema:
+          minimum: 1
+          type: integer
+          format: int32
+          default: 1
+      - name: size
+        in: query
+        schema:
+          minimum: 1
+          type: integer
+          format: int32
+          default: 10
+      - name: sorting
+        in: query
+        schema:
+          type: string
+      - name: filters
+        in: query
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertPage_Public"
+    post:
+      tags:
+      - Alerts
+      summary: Create alert
+      description: Create alert
+      operationId: createAlert
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Alert_Write"
+      responses:
+        "201":
+          description: Created
+          headers:
+            Location:
+              required: true
+              style: simple
+              schema:
+                type: string
+              example: "${basePath}/v1/private/alerts/{alertId}"
+        "422":
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+  /v1/private/alerts/delete:
+    post:
+      tags:
+      - Alerts
+      summary: Delete alert batch
+      description: Delete multiple alerts by their IDs
+      operationId: deleteAlertBatch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchDelete"
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+  /v1/private/alerts/{id}:
+    get:
+      tags:
+      - Alerts
+      summary: Get Alert by id
+      description: Get Alert by id
+      operationId: getAlertById
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Alert resource
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert_Public"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage_Public"
+    put:
+      tags:
+      - Alerts
+      summary: Update alert
+      description: Update alert
+      operationId: updateAlert
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Alert_Write"
+      responses:
+        "204":
+          description: No Content
+        "422":
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+  /v1/private/annotation-queues/{id}/items/add:
+    post:
+      tags:
+      - Annotation Queues
+      summary: Add items to annotation queue
+      description: Add traces or threads to annotation queue
+      operationId: addItemsToAnnotationQueue
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnotationQueueItemIds"
+      responses:
+        "204":
+          description: No content
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+  /v1/private/annotation-queues:
+    get:
+      tags:
+      - Annotation Queues
+      summary: Find annotation queues
+      description: Find annotation queues with filtering and sorting
+      operationId: findAnnotationQueues
+      parameters:
+      - name: page
+        in: query
+        schema:
+          minimum: 1
+          type: integer
+          format: int32
+          default: 1
+      - name: size
+        in: query
+        schema:
+          minimum: 1
+          type: integer
+          format: int32
+          default: 10
+      - name: name
+        in: query
+        schema:
+          type: string
+      - name: filters
+        in: query
+        schema:
+          type: string
+      - name: sorting
+        in: query
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Annotation queues page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnotationQueuePage_Public"
+    post:
+      tags:
+      - Annotation Queues
+      summary: Create annotation queue
+      description: Create annotation queue for human annotation workflows
+      operationId: createAnnotationQueue
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnotationQueue_Write"
+      responses:
+        "201":
+          description: Created
+          headers:
+            Location:
+              required: true
+              style: simple
+              schema:
+                type: string
+              example: "${basePath}/v1/private/traces/{annotationId}"
+        "422":
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+  /v1/private/annotation-queues/batch:
+    post:
+      tags:
+      - Annotation Queues
+      summary: Create annotation queue batch
+      description: Create multiple annotation queues for human annotation workflows
+      operationId: createAnnotationQueueBatch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnotationQueueBatch_Write"
+      responses:
+        "204":
+          description: No Content
+        "422":
+          description: Unprocessable Content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+  /v1/private/annotation-queues/delete:
+    post:
+      tags:
+      - Annotation Queues
+      summary: Delete annotation queue batch
+      description: Delete multiple annotation queues by their IDs
+      operationId: deleteAnnotationQueueBatch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchDelete"
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+  /v1/private/annotation-queues/{id}:
+    get:
+      tags:
+      - Annotation Queues
+      summary: Get annotation queue by id
+      description: Get annotation queue by id
+      operationId: getAnnotationQueueById
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Annotation queue resource
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnotationQueue_Public"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage_Public"
+    patch:
+      tags:
+      - Annotation Queues
+      summary: Update annotation queue
+      description: Update annotation queue by id
+      operationId: updateAnnotationQueue
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnotationQueueUpdate"
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+  /v1/private/annotation-queues/{id}/items/delete:
+    post:
+      tags:
+      - Annotation Queues
+      summary: Remove items from annotation queue
+      description: Remove items from annotation queue
+      operationId: removeItemsFromAnnotationQueue
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnotationQueueItemIds"
+      responses:
+        "204":
+          description: No content
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
   /v1/private/attachment/list:
     get:
       tags:
@@ -858,6 +1263,33 @@ paths:
       responses:
         "204":
           description: No content
+  /v1/private/datasets/{id}/expansions:
+    post:
+      tags:
+      - Datasets
+      summary: Expand dataset with synthetic samples
+      description: Generate synthetic dataset samples using LLM based on existing
+        data patterns
+      operationId: expandDataset
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DatasetExpansion_Write"
+      responses:
+        "200":
+          description: Generated synthetic samples
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetExpansionResponse"
   /v1/private/datasets/{id}/items/experiments/items:
     get:
       tags:
@@ -976,6 +1408,10 @@ paths:
           type: integer
           format: int32
           default: 10
+      - name: filters
+        in: query
+        schema:
+          type: string
       - name: truncate
         in: query
         schema:
@@ -1330,6 +1766,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorMessage_Public"
+    patch:
+      tags:
+      - Experiments
+      summary: Update experiment by id
+      description: Update experiment by id
+      operationId: updateExperiment
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExperimentUpdate"
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
   /v1/private/experiments/items/{id}:
     get:
       tags:
@@ -2438,6 +2907,46 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PromptVersionPage_Public"
+  /v1/private/prompts/{promptId}/versions/{versionId}/restore:
+    post:
+      tags:
+      - Prompts
+      summary: Restore prompt version
+      description: Restore a prompt version by creating a new version with the content
+        from the specified version
+      operationId: restorePromptVersion
+      parameters:
+      - name: promptId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: versionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptVersion_Detail"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage_Detail"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage_Detail"
   /v1/private/prompts/versions/retrieve:
     post:
       tags:
@@ -3017,14 +3526,15 @@ paths:
     put:
       tags:
       - Traces
-      summary: Close trace thread
-      description: Close trace thread
+      summary: Close trace thread(s)
+      description: Close one or multiple trace threads. Supports both single thread_id
+        and multiple thread_ids for batch operations.
       operationId: closeTraceThread
       requestBody:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TraceThreadIdentifier"
+              $ref: "#/components/schemas/TraceThreadBatchIdentifier"
       responses:
         "204":
           description: No Content
@@ -3626,7 +4136,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Comment"
+              $ref: "#/components/schemas/TraceThreadUpdate"
       responses:
         "204":
           description: No Content
@@ -3820,6 +4330,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorMessage"
+      deprecated: true
   /v1/private/workspaces/metrics/summaries:
     post:
       tags:
@@ -3845,6 +4356,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorMessage"
+      deprecated: true
   /v1/session/redirect/datasets:
     get:
       tags:
@@ -4074,6 +4586,695 @@ components:
         trace_count:
           type: integer
           format: int32
+    ErrorMessage:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+        details:
+          type: string
+    Alert:
+      required:
+      - name
+      - webhook
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          maxLength: 255
+          minLength: 0
+          type: string
+        enabled:
+          type: boolean
+        webhook:
+          $ref: "#/components/schemas/Webhook"
+        triggers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertTrigger"
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        last_updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        last_updated_by:
+          type: string
+          readOnly: true
+    AlertTrigger:
+      required:
+      - event_type
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        alert_id:
+          type: string
+          format: uuid
+          readOnly: true
+        event_type:
+          type: string
+          enum:
+          - trace:errors
+          - trace:feedback_score
+          - trace_thread:feedback_score
+          - prompt:created
+          - prompt:committed
+          - span:guardrails_triggered
+          - prompt:deleted
+        trigger_configs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertTriggerConfig"
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+    AlertTriggerConfig:
+      required:
+      - type
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        alert_trigger_id:
+          type: string
+          format: uuid
+          readOnly: true
+        type:
+          type: string
+          enum:
+          - scope:project
+          - threshold:feedback_score
+        config_value:
+          type: object
+          additionalProperties:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        last_updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        last_updated_by:
+          type: string
+          readOnly: true
+    Webhook:
+      required:
+      - secret_token
+      - url
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        url:
+          minLength: 1
+          type: string
+        secret_token:
+          maxLength: 250
+          minLength: 0
+          type: string
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        last_updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        last_updated_by:
+          type: string
+          readOnly: true
+    AlertTriggerConfig_Write:
+      required:
+      - type
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - scope:project
+          - threshold:feedback_score
+        config_value:
+          type: object
+          additionalProperties:
+            type: string
+    AlertTrigger_Write:
+      required:
+      - event_type
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+          enum:
+          - trace:errors
+          - trace:feedback_score
+          - trace_thread:feedback_score
+          - prompt:created
+          - prompt:committed
+          - span:guardrails_triggered
+          - prompt:deleted
+        trigger_configs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertTriggerConfig_Write"
+    Alert_Write:
+      required:
+      - name
+      - webhook
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          maxLength: 255
+          minLength: 0
+          type: string
+        enabled:
+          type: boolean
+        webhook:
+          $ref: "#/components/schemas/Webhook_Write"
+        triggers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertTrigger_Write"
+    Webhook_Write:
+      required:
+      - secret_token
+      - url
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        url:
+          minLength: 1
+          type: string
+        secret_token:
+          maxLength: 250
+          minLength: 0
+          type: string
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+    BatchDelete:
+      required:
+      - ids
+      type: object
+      properties:
+        ids:
+          maxItems: 1000
+          minItems: 1
+          uniqueItems: true
+          type: array
+          items:
+            type: string
+            format: uuid
+    AlertPage_Public:
+      type: object
+      properties:
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        total:
+          type: integer
+          format: int64
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/Alert_Public"
+        sortable_by:
+          type: array
+          items:
+            type: string
+    AlertTriggerConfig_Public:
+      required:
+      - type
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        alert_trigger_id:
+          type: string
+          format: uuid
+          readOnly: true
+        type:
+          type: string
+          enum:
+          - scope:project
+          - threshold:feedback_score
+        config_value:
+          type: object
+          additionalProperties:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        last_updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        last_updated_by:
+          type: string
+          readOnly: true
+    AlertTrigger_Public:
+      required:
+      - event_type
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        alert_id:
+          type: string
+          format: uuid
+          readOnly: true
+        event_type:
+          type: string
+          enum:
+          - trace:errors
+          - trace:feedback_score
+          - trace_thread:feedback_score
+          - prompt:created
+          - prompt:committed
+          - span:guardrails_triggered
+          - prompt:deleted
+        trigger_configs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertTriggerConfig_Public"
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+    Alert_Public:
+      required:
+      - name
+      - webhook
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          maxLength: 255
+          minLength: 0
+          type: string
+        enabled:
+          type: boolean
+        webhook:
+          $ref: "#/components/schemas/Webhook_Public"
+        triggers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertTrigger_Public"
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        last_updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        last_updated_by:
+          type: string
+          readOnly: true
+    Webhook_Public:
+      required:
+      - secret_token
+      - url
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        url:
+          minLength: 1
+          type: string
+        secret_token:
+          maxLength: 250
+          minLength: 0
+          type: string
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        last_updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        last_updated_by:
+          type: string
+          readOnly: true
+    ErrorMessage_Public:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+        details:
+          type: string
+    AnnotationQueueItemIds:
+      required:
+      - ids
+      type: object
+      properties:
+        ids:
+          maxItems: 1000
+          minItems: 1
+          uniqueItems: true
+          type: array
+          items:
+            type: string
+            format: uuid
+    AnnotationQueue:
+      required:
+      - name
+      - project_id
+      - scope
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        project_name:
+          type: string
+          readOnly: true
+        name:
+          minLength: 1
+          type: string
+        description:
+          type: string
+        instructions:
+          type: string
+        scope:
+          type: string
+          enum:
+          - trace
+          - thread
+        comments_enabled:
+          type: boolean
+        feedback_definition_names:
+          type: array
+          items:
+            type: string
+        reviewers:
+          type: array
+          readOnly: true
+          items:
+            $ref: "#/components/schemas/AnnotationQueueReviewer"
+        feedback_scores:
+          type: array
+          readOnly: true
+          items:
+            $ref: "#/components/schemas/FeedbackScoreAverage"
+        items_count:
+          type: integer
+          format: int64
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        last_updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        last_updated_by:
+          type: string
+          readOnly: true
+      description: List of annotation queues to create
+    AnnotationQueueReviewer:
+      type: object
+      properties:
+        username:
+          type: string
+        status:
+          type: integer
+          format: int64
+      readOnly: true
+    FeedbackScoreAverage:
+      required:
+      - name
+      - value
+      type: object
+      properties:
+        name:
+          minLength: 1
+          type: string
+        value:
+          type: number
+    AnnotationQueue_Write:
+      required:
+      - name
+      - project_id
+      - scope
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          minLength: 1
+          type: string
+        description:
+          type: string
+        instructions:
+          type: string
+        scope:
+          type: string
+          enum:
+          - trace
+          - thread
+        comments_enabled:
+          type: boolean
+        feedback_definition_names:
+          type: array
+          items:
+            type: string
+      description: List of annotation queues to create
+    AnnotationQueueBatch:
+      required:
+      - annotation_queues
+      type: object
+      properties:
+        annotation_queues:
+          maxItems: 1000
+          minItems: 1
+          uniqueItems: true
+          type: array
+          description: List of annotation queues to create
+          items:
+            $ref: "#/components/schemas/AnnotationQueue"
+      description: Batch of annotation queues to create
+    AnnotationQueueBatch_Write:
+      required:
+      - annotation_queues
+      type: object
+      properties:
+        annotation_queues:
+          maxItems: 1000
+          minItems: 1
+          uniqueItems: true
+          type: array
+          description: List of annotation queues to create
+          items:
+            $ref: "#/components/schemas/AnnotationQueue_Write"
+      description: Batch of annotation queues to create
+    AnnotationQueuePage_Public:
+      type: object
+      properties:
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        total:
+          type: integer
+          format: int64
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnnotationQueue_Public"
+        sortableBy:
+          type: array
+          items:
+            type: string
+    AnnotationQueueReviewer_Public:
+      type: object
+      properties:
+        username:
+          type: string
+        status:
+          type: integer
+          format: int64
+      readOnly: true
+    AnnotationQueue_Public:
+      required:
+      - name
+      - project_id
+      - scope
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        project_name:
+          type: string
+          readOnly: true
+        name:
+          minLength: 1
+          type: string
+        description:
+          type: string
+        instructions:
+          type: string
+        scope:
+          type: string
+          enum:
+          - trace
+          - thread
+        comments_enabled:
+          type: boolean
+        feedback_definition_names:
+          type: array
+          items:
+            type: string
+        reviewers:
+          type: array
+          readOnly: true
+          items:
+            $ref: "#/components/schemas/AnnotationQueueReviewer_Public"
+        feedback_scores:
+          type: array
+          readOnly: true
+          items:
+            $ref: "#/components/schemas/FeedbackScoreAverage_Public"
+        items_count:
+          type: integer
+          format: int64
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: string
+          readOnly: true
+        last_updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        last_updated_by:
+          type: string
+          readOnly: true
+    FeedbackScoreAverage_Public:
+      required:
+      - name
+      - value
+      type: object
+      properties:
+        name:
+          minLength: 1
+          type: string
+        value:
+          type: number
+      readOnly: true
+    AnnotationQueueUpdate:
+      type: object
+      properties:
+        name:
+          pattern: (?s)^\s*(\S.*\S|\S)\s*$
+          type: string
+        description:
+          type: string
+        instructions:
+          type: string
+        comments_enabled:
+          type: boolean
+        feedback_definition_names:
+          type: array
+          items:
+            minLength: 1
+            type: string
     Attachment:
       required:
       - file_name
@@ -4110,16 +5311,6 @@ components:
           type: array
           items:
             type: string
-    ErrorMessage:
-      type: object
-      properties:
-        code:
-          type: integer
-          format: int32
-        message:
-          type: string
-        details:
-          type: string
     CompleteMultipartUploadRequest:
       required:
       - entity_id
@@ -4279,6 +5470,10 @@ components:
           format: float
         enabled:
           type: boolean
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/TraceFilter"
         created_at:
           type: string
           format: date-time
@@ -4416,6 +5611,9 @@ components:
         temperature:
           type: number
           format: double
+        seed:
+          type: integer
+          format: int32
     LlmAsJudgeOutputSchema:
       required:
       - description
@@ -4432,6 +5630,30 @@ components:
           - INTEGER
           - DOUBLE
         description:
+          type: string
+    TraceFilter:
+      type: object
+      properties:
+        field:
+          type: string
+        operator:
+          type: string
+          enum:
+          - contains
+          - not_contains
+          - starts_with
+          - ends_with
+          - =
+          - '!='
+          - '>'
+          - '>='
+          - <
+          - <=
+          - is_empty
+          - is_not_empty
+        key:
+          type: string
+        value:
           type: string
     TraceThreadLlmAsJudgeCode:
       required:
@@ -4545,6 +5767,10 @@ components:
           format: float
         enabled:
           type: boolean
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/TraceFilter_Write"
         type:
           type: string
           enum:
@@ -4612,6 +5838,9 @@ components:
         temperature:
           type: number
           format: double
+        seed:
+          type: integer
+          format: int32
     LlmAsJudgeOutputSchema_Write:
       required:
       - description
@@ -4628,6 +5857,30 @@ components:
           - INTEGER
           - DOUBLE
         description:
+          type: string
+    TraceFilter_Write:
+      type: object
+      properties:
+        field:
+          type: string
+        operator:
+          type: string
+          enum:
+          - contains
+          - not_contains
+          - starts_with
+          - ends_with
+          - =
+          - '!='
+          - '>'
+          - '>='
+          - <
+          - <=
+          - is_empty
+          - is_not_empty
+        key:
+          type: string
+        value:
           type: string
     TraceThreadLlmAsJudgeCode_Write:
       required:
@@ -4666,19 +5919,6 @@ components:
           type: object
           additionalProperties:
             type: string
-    BatchDelete:
-      required:
-      - ids
-      type: object
-      properties:
-        ids:
-          maxItems: 1000
-          minItems: 1
-          uniqueItems: true
-          type: array
-          items:
-            type: string
-            format: uuid
     AutomationRuleEvaluatorLlmAsJudge_Public:
       required:
       - action
@@ -4719,6 +5959,10 @@ components:
           format: float
         enabled:
           type: boolean
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/TraceFilter_Public"
         created_at:
           type: string
           format: date-time
@@ -4858,6 +6102,9 @@ components:
         temperature:
           type: number
           format: double
+        seed:
+          type: integer
+          format: int32
     LlmAsJudgeOutputSchema_Public:
       required:
       - description
@@ -4874,6 +6121,30 @@ components:
           - INTEGER
           - DOUBLE
         description:
+          type: string
+    TraceFilter_Public:
+      type: object
+      properties:
+        field:
+          type: string
+        operator:
+          type: string
+          enum:
+          - contains
+          - not_contains
+          - starts_with
+          - ends_with
+          - =
+          - '!='
+          - '>'
+          - '>='
+          - <
+          - <=
+          - is_empty
+          - is_not_empty
+        key:
+          type: string
+        value:
           type: string
     TraceThreadLlmAsJudgeCode_Public:
       required:
@@ -4938,6 +6209,10 @@ components:
           format: float
         enabled:
           type: boolean
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/TraceFilter_Public"
         created_at:
           type: string
           format: date-time
@@ -5030,6 +6305,10 @@ components:
           format: float
         enabled:
           type: boolean
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/TraceFilter"
         project_id:
           type: string
           format: uuid
@@ -5371,6 +6650,8 @@ components:
           items:
             type: string
         description:
+          maxLength: 255
+          minLength: 0
           pattern: (?s)^\s*(\S.*\S|\S)\s*$
           type: string
         created_at:
@@ -5437,6 +6718,8 @@ components:
           items:
             type: string
         description:
+          maxLength: 255
+          minLength: 0
           pattern: (?s)^\s*(\S.*\S|\S)\s*$
           type: string
     Comment:
@@ -5733,6 +7016,98 @@ components:
           items:
             type: string
             format: uuid
+    DatasetExpansionResponse:
+      type: object
+      properties:
+        generated_samples:
+          type: array
+          description: List of generated synthetic dataset items
+          items:
+            $ref: "#/components/schemas/DatasetItem"
+        model:
+          type: string
+          description: Model used for generation
+          example: gpt-4
+        total_generated:
+          type: integer
+          description: Total number of samples generated
+          format: int32
+          example: 10
+        generation_time:
+          type: string
+          description: Generation timestamp
+          format: date-time
+          readOnly: true
+    DatasetExpansion:
+      required:
+      - model
+      type: object
+      properties:
+        model:
+          minLength: 1
+          type: string
+          description: The model to use for synthetic data generation
+          example: gpt-4
+        sample_count:
+          maximum: 200
+          minimum: 1
+          type: integer
+          description: Number of synthetic samples to generate
+          format: int32
+          example: 10
+        preserve_fields:
+          type: array
+          description: Fields to preserve patterns from original data
+          example:
+          - input
+          - expected_output
+          items:
+            type: string
+            description: Fields to preserve patterns from original data
+            example: "[\"input\",\"expected_output\"]"
+        variation_instructions:
+          type: string
+          description: Additional instructions for data variation
+          example: Create variations that test edge cases
+        custom_prompt:
+          type: string
+          description: Custom prompt to use for generation instead of auto-generated
+            one
+    DatasetExpansion_Write:
+      required:
+      - model
+      type: object
+      properties:
+        model:
+          minLength: 1
+          type: string
+          description: The model to use for synthetic data generation
+          example: gpt-4
+        sample_count:
+          maximum: 200
+          minimum: 1
+          type: integer
+          description: Number of synthetic samples to generate
+          format: int32
+          example: 10
+        preserve_fields:
+          type: array
+          description: Fields to preserve patterns from original data
+          example:
+          - input
+          - expected_output
+          items:
+            type: string
+            description: Fields to preserve patterns from original data
+            example: "[\"input\",\"expected_output\"]"
+        variation_instructions:
+          type: string
+          description: Additional instructions for data variation
+          example: Create variations that test edge cases
+        custom_prompt:
+          type: string
+          description: Custom prompt to use for generation instead of auto-generated
+            one
     Column_Compare:
       type: object
       properties:
@@ -6035,6 +7410,8 @@ components:
           items:
             type: string
         description:
+          maxLength: 255
+          minLength: 0
           pattern: (?s)^\s*(\S.*\S|\S)\s*$
           type: string
         created_at:
@@ -6282,6 +7659,8 @@ components:
           minLength: 1
           type: string
         description:
+          maxLength: 255
+          minLength: 0
           pattern: (?s)^\s*(\S.*\S|\S)\s*$
           type: string
         visibility:
@@ -6312,7 +7691,7 @@ components:
         name:
           type: string
         metadata:
-          $ref: "#/components/schemas/JsonNode"
+          $ref: "#/components/schemas/JsonListString"
         type:
           type: string
           enum:
@@ -6365,25 +7744,18 @@ components:
         last_updated_by:
           type: string
           readOnly: true
+        status:
+          type: string
+          enum:
+          - running
+          - completed
+          - cancelled
         prompt_version:
           $ref: "#/components/schemas/PromptVersionLink"
         prompt_versions:
           type: array
           items:
             $ref: "#/components/schemas/PromptVersionLink"
-    FeedbackScoreAverage:
-      required:
-      - name
-      - value
-      type: object
-      properties:
-        name:
-          minLength: 1
-          type: string
-        value:
-          type: number
-    JsonNode:
-      type: object
     PercentageValues:
       type: object
       properties:
@@ -6422,7 +7794,7 @@ components:
         name:
           type: string
         metadata:
-          $ref: "#/components/schemas/JsonNode_Write"
+          $ref: "#/components/schemas/JsonListString_Write"
         type:
           type: string
           enum:
@@ -6432,14 +7804,26 @@ components:
         optimization_id:
           type: string
           format: uuid
+        status:
+          type: string
+          enum:
+          - running
+          - completed
+          - cancelled
         prompt_version:
           $ref: "#/components/schemas/PromptVersionLink_Write"
         prompt_versions:
           type: array
           items:
             $ref: "#/components/schemas/PromptVersionLink_Write"
-    JsonNode_Write:
+    JsonListString_Write:
       type: object
+      anyOf:
+      - type: object
+      - type: array
+        items:
+          type: object
+      - type: string
     PromptVersionLink_Write:
       required:
       - id
@@ -6616,7 +8000,7 @@ components:
         output:
           $ref: "#/components/schemas/JsonListString"
         metadata:
-          $ref: "#/components/schemas/JsonNode"
+          $ref: "#/components/schemas/JsonListString"
         model:
           type: string
         provider:
@@ -6697,7 +8081,7 @@ components:
         output:
           $ref: "#/components/schemas/JsonListString"
         metadata:
-          $ref: "#/components/schemas/JsonNode"
+          $ref: "#/components/schemas/JsonListString"
         tags:
           uniqueItems: true
           type: array
@@ -6882,8 +8266,6 @@ components:
         items:
           type: object
       - type: string
-    JsonNode_ExperimentItemBulkWriteView:
-      type: object
     Span_ExperimentItemBulkWriteView:
       required:
       - start_time
@@ -6915,7 +8297,7 @@ components:
         output:
           $ref: "#/components/schemas/JsonListString_ExperimentItemBulkWriteView"
         metadata:
-          $ref: "#/components/schemas/JsonNode_ExperimentItemBulkWriteView"
+          $ref: "#/components/schemas/JsonListString_ExperimentItemBulkWriteView"
         model:
           type: string
         provider:
@@ -6966,7 +8348,7 @@ components:
         output:
           $ref: "#/components/schemas/JsonListString_ExperimentItemBulkWriteView"
         metadata:
-          $ref: "#/components/schemas/JsonNode_ExperimentItemBulkWriteView"
+          $ref: "#/components/schemas/JsonListString_ExperimentItemBulkWriteView"
         tags:
           uniqueItems: true
           type: array
@@ -7065,7 +8447,7 @@ components:
         name:
           type: string
         metadata:
-          $ref: "#/components/schemas/JsonNode_Public"
+          $ref: "#/components/schemas/JsonListString_Public"
         type:
           type: string
           enum:
@@ -7118,26 +8500,26 @@ components:
         last_updated_by:
           type: string
           readOnly: true
+        status:
+          type: string
+          enum:
+          - running
+          - completed
+          - cancelled
         prompt_version:
           $ref: "#/components/schemas/PromptVersionLink_Public"
         prompt_versions:
           type: array
           items:
             $ref: "#/components/schemas/PromptVersionLink_Public"
-    FeedbackScoreAverage_Public:
-      required:
-      - name
-      - value
+    JsonListString_Public:
       type: object
-      properties:
-        name:
-          minLength: 1
-          type: string
-        value:
-          type: number
-      readOnly: true
-    JsonNode_Public:
-      type: object
+      anyOf:
+      - type: object
+      - type: array
+        items:
+          type: object
+      - type: string
     PercentageValues_Public:
       type: object
       properties:
@@ -7162,16 +8544,6 @@ components:
           type: string
           format: uuid
           readOnly: true
-    ErrorMessage_Public:
-      type: object
-      properties:
-        code:
-          type: integer
-          format: int32
-        message:
-          type: string
-        details:
-          type: string
     ExperimentGroupResponse:
       type: object
       properties:
@@ -7261,6 +8633,29 @@ components:
         last_retrieved_id:
           type: string
           format: uuid
+    ExperimentUpdate:
+      type: object
+      properties:
+        name:
+          pattern: (?s)^\s*(\S.*\S|\S)\s*$
+          type: string
+        metadata:
+          $ref: "#/components/schemas/JsonNode"
+        type:
+          type: string
+          enum:
+          - regular
+          - trial
+          - mini-batch
+        status:
+          type: string
+          description: The status of the experiment
+          enum:
+          - running
+          - completed
+          - cancelled
+    JsonNode:
+      type: object
     CategoricalFeedbackDefinition:
       required:
       - details
@@ -7310,6 +8705,12 @@ components:
         name:
           minLength: 1
           type: string
+        description:
+          maxLength: 255
+          minLength: 0
+          type: string
+          description: Optional description for the feedback definition
+          example: This feedback definition is used to rate response quality
         createdAt:
           type: string
           format: date-time
@@ -7405,6 +8806,12 @@ components:
         name:
           minLength: 1
           type: string
+        description:
+          maxLength: 255
+          minLength: 0
+          type: string
+          description: Optional description for the feedback definition
+          example: This feedback definition is used to rate response quality
         type:
           type: string
           enum:
@@ -7502,6 +8909,12 @@ components:
         name:
           minLength: 1
           type: string
+        description:
+          maxLength: 255
+          minLength: 0
+          type: string
+          description: Optional description for the feedback definition
+          example: This feedback definition is used to rate response quality
         createdAt:
           type: string
           format: date-time
@@ -7575,6 +8988,12 @@ components:
         name:
           minLength: 1
           type: string
+        description:
+          maxLength: 255
+          minLength: 0
+          type: string
+          description: Optional description for the feedback definition
+          example: This feedback definition is used to rate response quality
         createdAt:
           type: string
           format: date-time
@@ -7634,6 +9053,12 @@ components:
         name:
           minLength: 1
           type: string
+        description:
+          maxLength: 255
+          minLength: 0
+          type: string
+          description: Optional description for the feedback definition
+          example: This feedback definition is used to rate response quality
         type:
           type: string
           enum:
@@ -7760,6 +9185,8 @@ components:
           $ref: "#/components/schemas/JsonNode"
         details:
           $ref: "#/components/schemas/JsonNode"
+    JsonNode_Write:
+      type: object
     ProviderApiKeyPage_Public:
       type: object
       properties:
@@ -7952,7 +9379,7 @@ components:
           - completed
           - cancelled
         metadata:
-          $ref: "#/components/schemas/JsonNode"
+          $ref: "#/components/schemas/JsonListString"
         dataset_id:
           type: string
           format: uuid
@@ -8004,7 +9431,7 @@ components:
           - completed
           - cancelled
         metadata:
-          $ref: "#/components/schemas/JsonNode_Write"
+          $ref: "#/components/schemas/JsonListString_Write"
         last_updated_at:
           type: string
           format: date-time
@@ -8053,7 +9480,7 @@ components:
           - completed
           - cancelled
         metadata:
-          $ref: "#/components/schemas/JsonNode_Public"
+          $ref: "#/components/schemas/JsonListString_Public"
         dataset_id:
           type: string
           format: uuid
@@ -8121,6 +9548,8 @@ components:
           - private
           - public
         description:
+          maxLength: 255
+          minLength: 0
           type: string
         created_at:
           type: string
@@ -8186,6 +9615,8 @@ components:
           - private
           - public
         description:
+          maxLength: 255
+          minLength: 0
           type: string
     ProjectPage_Public:
       type: object
@@ -8225,6 +9656,8 @@ components:
           - private
           - public
         description:
+          maxLength: 255
+          minLength: 0
           type: string
         created_at:
           type: string
@@ -8338,30 +9771,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TraceThreadFilter_Public"
-    TraceFilter_Public:
-      type: object
-      properties:
-        field:
-          type: string
-        operator:
-          type: string
-          enum:
-          - contains
-          - not_contains
-          - starts_with
-          - ends_with
-          - =
-          - '!='
-          - '>'
-          - '>='
-          - <
-          - <=
-          - is_empty
-          - is_not_empty
-        key:
-          type: string
-        value:
-          type: string
     TraceThreadFilter_Public:
       type: object
       properties:
@@ -8477,6 +9886,8 @@ components:
           - private
           - public
         description:
+          maxLength: 255
+          minLength: 0
           type: string
         created_at:
           type: string
@@ -8550,6 +9961,8 @@ components:
           pattern: (?s)^\s*(\S.*\S|\S)\s*$
           type: string
         description:
+          maxLength: 255
+          minLength: 0
           type: string
         visibility:
           type: string
@@ -8568,6 +9981,8 @@ components:
           minLength: 1
           type: string
         description:
+          maxLength: 255
+          minLength: 0
           pattern: (?s)^\s*(\S.*\S|\S)\s*$
           type: string
         template:
@@ -8664,6 +10079,8 @@ components:
           minLength: 1
           type: string
         description:
+          maxLength: 255
+          minLength: 0
           pattern: (?s)^\s*(\S.*\S|\S)\s*$
           type: string
         template:
@@ -8762,6 +10179,8 @@ components:
           minLength: 1
           type: string
         description:
+          maxLength: 255
+          minLength: 0
           pattern: (?s)^\s*(\S.*\S|\S)\s*$
           type: string
         tags:
@@ -8789,6 +10208,8 @@ components:
           readOnly: true
         latest_version:
           $ref: "#/components/schemas/PromptVersion_Detail"
+    JsonNode_Public:
+      type: object
     PromptVersionPage_Public:
       type: object
       properties:
@@ -8874,6 +10295,8 @@ components:
           minLength: 1
           type: string
         description:
+          maxLength: 255
+          minLength: 0
           pattern: (?s)^\s*(\S.*\S|\S)\s*$
           type: string
         tags:
@@ -8918,6 +10341,8 @@ components:
           minLength: 1
           type: string
         description:
+          maxLength: 255
+          minLength: 0
           pattern: (?s)^\s*(\S.*\S|\S)\s*$
           type: string
         tags:
@@ -8955,14 +10380,6 @@ components:
         traceback:
           minLength: 1
           type: string
-    JsonListString_Write:
-      type: object
-      anyOf:
-      - type: object
-      - type: array
-        items:
-          type: object
-      - type: string
     Span_Write:
       required:
       - start_time
@@ -9001,7 +10418,7 @@ components:
         output:
           $ref: "#/components/schemas/JsonListString_Write"
         metadata:
-          $ref: "#/components/schemas/JsonNode_Write"
+          $ref: "#/components/schemas/JsonListString_Write"
         model:
           type: string
         provider:
@@ -9119,14 +10536,6 @@ components:
             $ref: "#/components/schemas/ValueEntry_Public"
           readOnly: true
       readOnly: true
-    JsonListString_Public:
-      type: object
-      anyOf:
-      - type: object
-      - type: array
-        items:
-          type: object
-      - type: string
     Span_Public:
       required:
       - start_time
@@ -9169,7 +10578,7 @@ components:
         output:
           $ref: "#/components/schemas/JsonListString_Public"
         metadata:
-          $ref: "#/components/schemas/JsonNode_Public"
+          $ref: "#/components/schemas/JsonListString_Public"
         model:
           type: string
         provider:
@@ -9454,7 +10863,7 @@ components:
         output:
           $ref: "#/components/schemas/JsonListString"
         metadata:
-          $ref: "#/components/schemas/JsonNode"
+          $ref: "#/components/schemas/JsonListString"
         model:
           type: string
         provider:
@@ -9475,9 +10884,7 @@ components:
           type: number
         error_info:
           $ref: "#/components/schemas/ErrorInfo"
-    TraceThreadIdentifier:
-      required:
-      - thread_id
+    TraceThreadBatchIdentifier:
       type: object
       properties:
         project_name:
@@ -9486,8 +10893,15 @@ components:
           type: string
           format: uuid
         thread_id:
-          minLength: 1
           type: string
+        thread_ids:
+          maxItems: 1000
+          minItems: 1
+          uniqueItems: true
+          type: array
+          items:
+            minLength: 1
+            type: string
     Trace_Write:
       required:
       - start_time
@@ -9513,7 +10927,7 @@ components:
         output:
           $ref: "#/components/schemas/JsonListString_Write"
         metadata:
-          $ref: "#/components/schemas/JsonNode_Write"
+          $ref: "#/components/schemas/JsonListString_Write"
         tags:
           uniqueItems: true
           type: array
@@ -9656,7 +11070,7 @@ components:
         output:
           $ref: "#/components/schemas/JsonListString_Public"
         metadata:
-          $ref: "#/components/schemas/JsonNode_Public"
+          $ref: "#/components/schemas/JsonListString_Public"
         tags:
           uniqueItems: true
           type: array
@@ -9786,6 +11200,19 @@ components:
         created_at:
           type: string
           format: date-time
+    TraceThreadIdentifier:
+      required:
+      - thread_id
+      type: object
+      properties:
+        project_name:
+          type: string
+        project_id:
+          type: string
+          format: uuid
+        thread_id:
+          minLength: 1
+          type: string
     TraceThreadPage:
       type: object
       properties:
@@ -9971,7 +11398,7 @@ components:
         output:
           $ref: "#/components/schemas/JsonListString"
         metadata:
-          $ref: "#/components/schemas/JsonNode"
+          $ref: "#/components/schemas/JsonListString"
         tags:
           uniqueItems: true
           type: array

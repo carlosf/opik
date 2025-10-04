@@ -33,6 +33,7 @@ import ru.vyarus.guicey.jdbi3.tx.TransactionTemplate;
 import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -169,8 +170,9 @@ class AutomationRuleEvaluatorServiceImpl implements AutomationRuleEvaluatorServi
             var dao = handle.attach(AutomationRuleEvaluatorDAO.class);
 
             try {
+                String filtersJson = AutomationModelEvaluatorMapper.INSTANCE.map(evaluatorUpdate.getFilters());
                 int resultBase = dao.updateBaseRule(id, projectId, workspaceId, evaluatorUpdate.getName(),
-                        evaluatorUpdate.getSamplingRate(), evaluatorUpdate.isEnabled());
+                        evaluatorUpdate.getSamplingRate(), evaluatorUpdate.isEnabled(), filtersJson);
 
                 AutomationRuleEvaluatorModel<?> modelUpdate = switch (evaluatorUpdate) {
                     case AutomationRuleEvaluatorUpdateLlmAsJudge evaluatorUpdateLlmAsJudge ->
@@ -342,6 +344,13 @@ class AutomationRuleEvaluatorServiceImpl implements AutomationRuleEvaluatorServi
 
     @Override
     public Mono<LogPage> getLogs(@NonNull LogCriteria criteria) {
-        return logsDAO.findLogs(criteria);
+        return logsDAO.findLogs(criteria)
+                .collectList()
+                .map(logs -> LogPage.builder()
+                        .content(logs)
+                        .page(Optional.ofNullable(criteria.page()).orElse(1))
+                        .total(logs.size())
+                        .size(logs.size())
+                        .build());
     }
 }

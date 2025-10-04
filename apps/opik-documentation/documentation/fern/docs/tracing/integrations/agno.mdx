@@ -1,3 +1,8 @@
+---
+title: Observability for Agno with Opik
+description: Start here to integrate Opik into your Agno-based genai application for end-to-end LLM observability, unit testing, and optimization.
+---
+
 [Agno](https://github.com/agno-agi/agno) is a lightweight, high-performance library for building AI agents.
 
 Agno's primary advantage is its minimal overhead and efficient execution, making it ideal for production environments where performance is critical while maintaining simplicity in agent development.
@@ -89,7 +94,7 @@ configure the OpenTelemetry integration:
 
 The example below shows how to use the Agno integration with Opik:
 
-```python {pytest_codeblocks_skip=true}
+```python
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.yfinance import YFinanceTools

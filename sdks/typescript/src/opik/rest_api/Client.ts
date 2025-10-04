@@ -7,6 +7,8 @@ import * as core from "./core";
 import urlJoin from "url-join";
 import * as errors from "./errors/index";
 import { SystemUsage } from "./api/resources/systemUsage/client/Client";
+import { Alerts } from "./api/resources/alerts/client/Client";
+import { AnnotationQueues } from "./api/resources/annotationQueues/client/Client";
 import { Attachments } from "./api/resources/attachments/client/Client";
 import { Check } from "./api/resources/check/client/Client";
 import { AutomationRuleEvaluators } from "./api/resources/automationRuleEvaluators/client/Client";
@@ -55,6 +57,8 @@ export declare namespace OpikApiClient {
 
 export class OpikApiClient {
     protected _systemUsage: SystemUsage | undefined;
+    protected _alerts: Alerts | undefined;
+    protected _annotationQueues: AnnotationQueues | undefined;
     protected _attachments: Attachments | undefined;
     protected _check: Check | undefined;
     protected _automationRuleEvaluators: AutomationRuleEvaluators | undefined;
@@ -78,6 +82,14 @@ export class OpikApiClient {
 
     public get systemUsage(): SystemUsage {
         return (this._systemUsage ??= new SystemUsage(this._options));
+    }
+
+    public get alerts(): Alerts {
+        return (this._alerts ??= new Alerts(this._options));
+    }
+
+    public get annotationQueues(): AnnotationQueues {
+        return (this._annotationQueues ??= new AnnotationQueues(this._options));
     }
 
     public get attachments(): Attachments {

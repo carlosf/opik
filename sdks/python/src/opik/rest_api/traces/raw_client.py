@@ -23,8 +23,6 @@ from ..types.feedback_score_batch_item_thread import FeedbackScoreBatchItemThrea
 from ..types.feedback_score_source import FeedbackScoreSource
 from ..types.json_list_string import JsonListString
 from ..types.json_list_string_write import JsonListStringWrite
-from ..types.json_node import JsonNode
-from ..types.json_node_write import JsonNodeWrite
 from ..types.project_stats_public import ProjectStatsPublic
 from ..types.trace_filter_public import TraceFilterPublic
 from ..types.trace_page_public import TracePagePublic
@@ -253,21 +251,24 @@ class RawTracesClient:
     def close_trace_thread(
         self,
         *,
-        thread_id: str,
         project_name: typing.Optional[str] = OMIT,
         project_id: typing.Optional[str] = OMIT,
+        thread_id: typing.Optional[str] = OMIT,
+        thread_ids: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[None]:
         """
-        Close trace thread
+        Close one or multiple trace threads. Supports both single thread_id and multiple thread_ids for batch operations.
 
         Parameters
         ----------
-        thread_id : str
-
         project_name : typing.Optional[str]
 
         project_id : typing.Optional[str]
+
+        thread_id : typing.Optional[str]
+
+        thread_ids : typing.Optional[typing.Sequence[str]]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -283,6 +284,7 @@ class RawTracesClient:
                 "project_name": project_name,
                 "project_id": project_id,
                 "thread_id": thread_id,
+                "thread_ids": thread_ids,
             },
             headers={
                 "content-type": "application/json",
@@ -391,7 +393,7 @@ class RawTracesClient:
         end_time: typing.Optional[dt.datetime] = OMIT,
         input: typing.Optional[JsonListStringWrite] = OMIT,
         output: typing.Optional[JsonListStringWrite] = OMIT,
-        metadata: typing.Optional[JsonNodeWrite] = OMIT,
+        metadata: typing.Optional[JsonListStringWrite] = OMIT,
         tags: typing.Optional[typing.Sequence[str]] = OMIT,
         error_info: typing.Optional[ErrorInfoWrite] = OMIT,
         last_updated_at: typing.Optional[dt.datetime] = OMIT,
@@ -418,7 +420,7 @@ class RawTracesClient:
 
         output : typing.Optional[JsonListStringWrite]
 
-        metadata : typing.Optional[JsonNodeWrite]
+        metadata : typing.Optional[JsonListStringWrite]
 
         tags : typing.Optional[typing.Sequence[str]]
 
@@ -450,7 +452,9 @@ class RawTracesClient:
                 "output": convert_and_respect_annotation_metadata(
                     object_=output, annotation=JsonListStringWrite, direction="write"
                 ),
-                "metadata": metadata,
+                "metadata": convert_and_respect_annotation_metadata(
+                    object_=metadata, annotation=JsonListStringWrite, direction="write"
+                ),
                 "tags": tags,
                 "error_info": convert_and_respect_annotation_metadata(
                     object_=error_info, annotation=ErrorInfoWrite, direction="write"
@@ -589,7 +593,7 @@ class RawTracesClient:
         end_time: typing.Optional[dt.datetime] = OMIT,
         input: typing.Optional[JsonListString] = OMIT,
         output: typing.Optional[JsonListString] = OMIT,
-        metadata: typing.Optional[JsonNode] = OMIT,
+        metadata: typing.Optional[JsonListString] = OMIT,
         tags: typing.Optional[typing.Sequence[str]] = OMIT,
         error_info: typing.Optional[ErrorInfo] = OMIT,
         thread_id: typing.Optional[str] = OMIT,
@@ -616,7 +620,7 @@ class RawTracesClient:
 
         output : typing.Optional[JsonListString]
 
-        metadata : typing.Optional[JsonNode]
+        metadata : typing.Optional[JsonListString]
 
         tags : typing.Optional[typing.Sequence[str]]
 
@@ -645,7 +649,9 @@ class RawTracesClient:
                 "output": convert_and_respect_annotation_metadata(
                     object_=output, annotation=JsonListString, direction="write"
                 ),
-                "metadata": metadata,
+                "metadata": convert_and_respect_annotation_metadata(
+                    object_=metadata, annotation=JsonListString, direction="write"
+                ),
                 "tags": tags,
                 "error_info": convert_and_respect_annotation_metadata(
                     object_=error_info, annotation=ErrorInfo, direction="write"
@@ -1618,12 +1624,7 @@ class RawTracesClient:
         self,
         thread_model_id: str,
         *,
-        text: str,
-        id: typing.Optional[str] = OMIT,
-        created_at: typing.Optional[dt.datetime] = OMIT,
-        last_updated_at: typing.Optional[dt.datetime] = OMIT,
-        created_by: typing.Optional[str] = OMIT,
-        last_updated_by: typing.Optional[str] = OMIT,
+        tags: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[None]:
         """
@@ -1633,17 +1634,7 @@ class RawTracesClient:
         ----------
         thread_model_id : str
 
-        text : str
-
-        id : typing.Optional[str]
-
-        created_at : typing.Optional[dt.datetime]
-
-        last_updated_at : typing.Optional[dt.datetime]
-
-        created_by : typing.Optional[str]
-
-        last_updated_by : typing.Optional[str]
+        tags : typing.Optional[typing.Sequence[str]]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1656,12 +1647,7 @@ class RawTracesClient:
             f"v1/private/traces/threads/{jsonable_encoder(thread_model_id)}",
             method="PATCH",
             json={
-                "id": id,
-                "text": text,
-                "created_at": created_at,
-                "last_updated_at": last_updated_at,
-                "created_by": created_by,
-                "last_updated_by": last_updated_by,
+                "tags": tags,
             },
             headers={
                 "content-type": "application/json",
@@ -2051,21 +2037,24 @@ class AsyncRawTracesClient:
     async def close_trace_thread(
         self,
         *,
-        thread_id: str,
         project_name: typing.Optional[str] = OMIT,
         project_id: typing.Optional[str] = OMIT,
+        thread_id: typing.Optional[str] = OMIT,
+        thread_ids: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[None]:
         """
-        Close trace thread
+        Close one or multiple trace threads. Supports both single thread_id and multiple thread_ids for batch operations.
 
         Parameters
         ----------
-        thread_id : str
-
         project_name : typing.Optional[str]
 
         project_id : typing.Optional[str]
+
+        thread_id : typing.Optional[str]
+
+        thread_ids : typing.Optional[typing.Sequence[str]]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2081,6 +2070,7 @@ class AsyncRawTracesClient:
                 "project_name": project_name,
                 "project_id": project_id,
                 "thread_id": thread_id,
+                "thread_ids": thread_ids,
             },
             headers={
                 "content-type": "application/json",
@@ -2189,7 +2179,7 @@ class AsyncRawTracesClient:
         end_time: typing.Optional[dt.datetime] = OMIT,
         input: typing.Optional[JsonListStringWrite] = OMIT,
         output: typing.Optional[JsonListStringWrite] = OMIT,
-        metadata: typing.Optional[JsonNodeWrite] = OMIT,
+        metadata: typing.Optional[JsonListStringWrite] = OMIT,
         tags: typing.Optional[typing.Sequence[str]] = OMIT,
         error_info: typing.Optional[ErrorInfoWrite] = OMIT,
         last_updated_at: typing.Optional[dt.datetime] = OMIT,
@@ -2216,7 +2206,7 @@ class AsyncRawTracesClient:
 
         output : typing.Optional[JsonListStringWrite]
 
-        metadata : typing.Optional[JsonNodeWrite]
+        metadata : typing.Optional[JsonListStringWrite]
 
         tags : typing.Optional[typing.Sequence[str]]
 
@@ -2248,7 +2238,9 @@ class AsyncRawTracesClient:
                 "output": convert_and_respect_annotation_metadata(
                     object_=output, annotation=JsonListStringWrite, direction="write"
                 ),
-                "metadata": metadata,
+                "metadata": convert_and_respect_annotation_metadata(
+                    object_=metadata, annotation=JsonListStringWrite, direction="write"
+                ),
                 "tags": tags,
                 "error_info": convert_and_respect_annotation_metadata(
                     object_=error_info, annotation=ErrorInfoWrite, direction="write"
@@ -2387,7 +2379,7 @@ class AsyncRawTracesClient:
         end_time: typing.Optional[dt.datetime] = OMIT,
         input: typing.Optional[JsonListString] = OMIT,
         output: typing.Optional[JsonListString] = OMIT,
-        metadata: typing.Optional[JsonNode] = OMIT,
+        metadata: typing.Optional[JsonListString] = OMIT,
         tags: typing.Optional[typing.Sequence[str]] = OMIT,
         error_info: typing.Optional[ErrorInfo] = OMIT,
         thread_id: typing.Optional[str] = OMIT,
@@ -2414,7 +2406,7 @@ class AsyncRawTracesClient:
 
         output : typing.Optional[JsonListString]
 
-        metadata : typing.Optional[JsonNode]
+        metadata : typing.Optional[JsonListString]
 
         tags : typing.Optional[typing.Sequence[str]]
 
@@ -2443,7 +2435,9 @@ class AsyncRawTracesClient:
                 "output": convert_and_respect_annotation_metadata(
                     object_=output, annotation=JsonListString, direction="write"
                 ),
-                "metadata": metadata,
+                "metadata": convert_and_respect_annotation_metadata(
+                    object_=metadata, annotation=JsonListString, direction="write"
+                ),
                 "tags": tags,
                 "error_info": convert_and_respect_annotation_metadata(
                     object_=error_info, annotation=ErrorInfo, direction="write"
@@ -3418,12 +3412,7 @@ class AsyncRawTracesClient:
         self,
         thread_model_id: str,
         *,
-        text: str,
-        id: typing.Optional[str] = OMIT,
-        created_at: typing.Optional[dt.datetime] = OMIT,
-        last_updated_at: typing.Optional[dt.datetime] = OMIT,
-        created_by: typing.Optional[str] = OMIT,
-        last_updated_by: typing.Optional[str] = OMIT,
+        tags: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[None]:
         """
@@ -3433,17 +3422,7 @@ class AsyncRawTracesClient:
         ----------
         thread_model_id : str
 
-        text : str
-
-        id : typing.Optional[str]
-
-        created_at : typing.Optional[dt.datetime]
-
-        last_updated_at : typing.Optional[dt.datetime]
-
-        created_by : typing.Optional[str]
-
-        last_updated_by : typing.Optional[str]
+        tags : typing.Optional[typing.Sequence[str]]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -3456,12 +3435,7 @@ class AsyncRawTracesClient:
             f"v1/private/traces/threads/{jsonable_encoder(thread_model_id)}",
             method="PATCH",
             json={
-                "id": id,
-                "text": text,
-                "created_at": created_at,
-                "last_updated_at": last_updated_at,
-                "created_by": created_by,
-                "last_updated_by": last_updated_by,
+                "tags": tags,
             },
             headers={
                 "content-type": "application/json",

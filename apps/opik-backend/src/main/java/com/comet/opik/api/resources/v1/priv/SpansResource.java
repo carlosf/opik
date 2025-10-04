@@ -30,7 +30,7 @@ import com.comet.opik.domain.workspaces.WorkspaceMetadataService;
 import com.comet.opik.infrastructure.auth.RequestContext;
 import com.comet.opik.infrastructure.ratelimit.RateLimited;
 import com.comet.opik.infrastructure.usagelimit.UsageLimited;
-import com.comet.opik.utils.AsyncUtils;
+import com.comet.opik.utils.RetryUtils;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.dropwizard.jersey.errors.ErrorMessage;
@@ -162,16 +162,18 @@ public class SpansResource {
             @ApiResponse(responseCode = "404", description = "Not found", content = @Content(schema = @Schema(implementation = Span.class)))})
     @JsonView(View.Public.class)
     @RateLimited(value = "getSpanById:{workspaceId}", shouldAffectWorkspaceLimit = false, shouldAffectUserGeneralLimit = false)
-    public Response getById(@PathParam("id") @NotNull UUID id) {
-
+    public Response getById(@PathParam("id") @NotNull UUID id,
+            @QueryParam("truncate") @DefaultValue("false") @Schema(description = "If true, returns references; if false, returns reinjected base64. Matches traces endpoint for consistency and API discoverability.") boolean truncate) {
         String workspaceId = requestContext.get().getWorkspaceId();
 
-        log.info("Getting span by id '{}' on workspace_id '{}'", id, workspaceId);
-        var span = spanService.getById(id)
+        log.info("Getting span by id '{}' on workspace_id '{}' with truncate={}", id, workspaceId, truncate);
+
+        var span = spanService.getById(id, truncate)
                 .contextWrite(ctx -> setRequestContext(ctx, requestContext))
                 .block();
-        log.info("Got span by id '{}', traceId '{}', parentSpanId '{}' on workspace_id '{}'", span.id(), span.traceId(),
-                span.parentSpanId(), workspaceId);
+        log.info("Got span by id '{}', traceId '{}', parentSpanId '{}' on workspace_id '{}' with truncate={}",
+                span.id(), span.traceId(),
+                span.parentSpanId(), workspaceId, truncate);
 
         return Response.ok().entity(span).build();
     }
@@ -298,7 +300,7 @@ public class SpansResource {
         log.info("Feedback scores batch for spans, size {} on  workspaceId '{}'", batch.scores().size(), workspaceId);
         feedbackScoreService.scoreBatchOfSpans(batch.scores())
                 .contextWrite(ctx -> setRequestContext(ctx, requestContext))
-                .retryWhen(AsyncUtils.handleConnectionError())
+                .retryWhen(RetryUtils.handleConnectionError())
                 .block();
         log.info("Scored batch for spans, size {} on workspaceId '{}'", batch.scores().size(), workspaceId);
         return Response.noContent().build();

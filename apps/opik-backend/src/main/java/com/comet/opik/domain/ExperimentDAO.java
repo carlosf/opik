@@ -7,8 +7,10 @@ import com.comet.opik.api.ExperimentGroupAggregationItem;
 import com.comet.opik.api.ExperimentGroupCriteria;
 import com.comet.opik.api.ExperimentGroupItem;
 import com.comet.opik.api.ExperimentSearchCriteria;
+import com.comet.opik.api.ExperimentStatus;
 import com.comet.opik.api.ExperimentStreamRequest;
 import com.comet.opik.api.ExperimentType;
+import com.comet.opik.api.ExperimentUpdate;
 import com.comet.opik.api.FeedbackScoreAverage;
 import com.comet.opik.api.PercentageValues;
 import com.comet.opik.api.sorting.ExperimentSortingFactory;
@@ -51,6 +53,7 @@ import java.util.stream.Stream;
 
 import static com.comet.opik.api.Experiment.ExperimentPage;
 import static com.comet.opik.api.Experiment.PromptVersionLink;
+import static com.comet.opik.domain.AsyncContextUtils.bindUserNameAndWorkspaceContextToStream;
 import static com.comet.opik.domain.AsyncContextUtils.bindWorkspaceIdToFlux;
 import static com.comet.opik.domain.CommentResultMapper.getComments;
 import static com.comet.opik.utils.AsyncUtils.makeFluxContextAware;
@@ -83,7 +86,8 @@ class ExperimentDAO {
                 prompt_id,
                 prompt_versions,
                 type,
-                optimization_id
+                optimization_id,
+                status
             )
             SELECT
                 if(
@@ -101,7 +105,8 @@ class ExperimentDAO {
                 new.prompt_id,
                 new.prompt_versions,
                 new.type,
-                new.optimization_id
+                new.optimization_id,
+                new.status
             FROM (
                 SELECT
                 :id AS id,
@@ -115,7 +120,8 @@ class ExperimentDAO {
                 :prompt_id AS prompt_id,
                 mapFromArrays(:prompt_ids, :prompt_version_ids) AS prompt_versions,
                 :type AS type,
-                :optimization_id AS optimization_id
+                :optimization_id AS optimization_id,
+                :status AS status
             ) AS new
             LEFT JOIN (
                 SELECT
@@ -208,12 +214,14 @@ class ExperimentDAO {
                     ) AS s ON ei.trace_id = s.trace_id
                 )
                 GROUP BY experiment_id
-            ), feedback_scores_combined AS (
+            ), feedback_scores_combined_raw AS (
                 SELECT workspace_id,
                        project_id,
                        entity_id,
                        name,
-                       value
+                       value,
+                       last_updated_at,
+                       feedback_scores.last_updated_by AS author
                 FROM feedback_scores FINAL
                 WHERE entity_type = 'trace'
                   AND workspace_id = :workspace_id
@@ -224,11 +232,36 @@ class ExperimentDAO {
                     project_id,
                     entity_id,
                     name,
-                    value
+                    value,
+                    last_updated_at,
+                    author
                 FROM authored_feedback_scores FINAL
                 WHERE entity_type = 'trace'
                    AND workspace_id = :workspace_id
                    AND entity_id IN (SELECT trace_id FROM experiment_items_final)
+            ), feedback_scores_with_ranking AS (
+                SELECT workspace_id,
+                       project_id,
+                       entity_id,
+                       name,
+                       value,
+                       last_updated_at,
+                       author,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY workspace_id, project_id, entity_id, name, author
+                           ORDER BY last_updated_at DESC
+                       ) as rn
+                FROM feedback_scores_combined_raw
+            ), feedback_scores_combined AS (
+                SELECT workspace_id,
+                       project_id,
+                       entity_id,
+                       name,
+                       value,
+                       last_updated_at,
+                       author
+                FROM feedback_scores_with_ranking
+                WHERE rn = 1
             ), feedback_scores_combined_grouped AS (
                 SELECT
                     workspace_id,
@@ -322,6 +355,7 @@ class ExperimentDAO {
                 e.prompt_versions as prompt_versions,
                 e.optimization_id as optimization_id,
                 e.type as type,
+                e.status as status,
                 fs.feedback_scores as feedback_scores,
                 ed.trace_count as trace_count,
                 ed.duration_values AS duration,
@@ -439,12 +473,14 @@ class ExperimentDAO {
                     ) AS s ON ei.trace_id = s.trace_id
                 )
                 GROUP BY experiment_id
-            ), feedback_scores_combined AS (
+            ), feedback_scores_combined_raw AS (
                 SELECT workspace_id,
                        project_id,
                        entity_id,
                        name,
-                       value
+                       value,
+                       last_updated_at,
+                       feedback_scores.last_updated_by AS author
                 FROM feedback_scores FINAL
                 WHERE entity_type = 'trace'
                   AND workspace_id = :workspace_id
@@ -455,11 +491,36 @@ class ExperimentDAO {
                     project_id,
                     entity_id,
                     name,
-                    value
+                    value,
+                    last_updated_at,
+                    author
                 FROM authored_feedback_scores FINAL
                 WHERE entity_type = 'trace'
                    AND workspace_id = :workspace_id
                    AND entity_id IN (SELECT trace_id FROM experiment_items_final)
+            ), feedback_scores_with_ranking AS (
+                SELECT workspace_id,
+                       project_id,
+                       entity_id,
+                       name,
+                       value,
+                       last_updated_at,
+                       author,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY workspace_id, project_id, entity_id, name, author
+                           ORDER BY last_updated_at DESC
+                       ) as rn
+                FROM feedback_scores_combined_raw
+            ), feedback_scores_combined AS (
+                SELECT workspace_id,
+                       project_id,
+                       entity_id,
+                       name,
+                       value,
+                       last_updated_at,
+                       author
+                FROM feedback_scores_with_ranking
+                WHERE rn = 1
             ), feedback_scores_final AS (
                 SELECT
                     workspace_id,
@@ -600,11 +661,49 @@ class ExperimentDAO {
             AND id NOT IN (
                 SELECT id
                 FROM experiments
-                WHERE workspace_id = :demo_workspace_id
-                AND name IN :excluded_names
+                WHERE name IN :excluded_names
             )
             GROUP BY workspace_id, created_by
             ;
+            """;
+
+    private static final String UPDATE = """
+            INSERT INTO experiments (
+                id,
+                dataset_id,
+                name,
+                workspace_id,
+                metadata,
+                created_by,
+                last_updated_by,
+                prompt_version_id,
+                prompt_id,
+                prompt_versions,
+                type,
+                optimization_id,
+                status,
+                created_at,
+                last_updated_at
+            )
+            SELECT
+                id,
+                dataset_id,
+                <if(name)> :name <else> name <endif> as name,
+                workspace_id,
+                <if(metadata)> :metadata <else> metadata <endif> as metadata,
+                created_by,
+                :user_name as last_updated_by,
+                prompt_version_id,
+                prompt_id,
+                prompt_versions,
+                <if(type)> :type <else> type <endif> as type,
+                optimization_id,
+                <if(status)> :status <else> status <endif> as status,
+                created_at,
+                now64(9) as last_updated_at
+            FROM experiments
+            WHERE id = :id
+            AND workspace_id = :workspace_id
             """;
 
     private final @NonNull ConnectionFactory connectionFactory;
@@ -627,7 +726,8 @@ class ExperimentDAO {
                 .bind("name", experiment.name())
                 .bind("metadata", getStringOrDefault(experiment.metadata()))
                 .bind("type", Optional.ofNullable(experiment.type()).orElse(ExperimentType.REGULAR).getValue())
-                .bind("optimization_id", experiment.optimizationId() != null ? experiment.optimizationId() : "");
+                .bind("optimization_id", experiment.optimizationId() != null ? experiment.optimizationId() : "")
+                .bind("status", Optional.ofNullable(experiment.status()).orElse(ExperimentStatus.COMPLETED).getValue());
 
         if (experiment.promptVersion() != null) {
             statement.bind("prompt_version_id", experiment.promptVersion().id());
@@ -734,6 +834,7 @@ class ExperimentDAO {
                             .map(UUID::fromString)
                             .orElse(null))
                     .type(ExperimentType.fromString(row.get("type", String.class)))
+                    .status(ExperimentStatus.fromString(row.get("status", String.class)))
                     .build();
         });
     }
@@ -972,7 +1073,6 @@ class ExperimentDAO {
 
     private Publisher<? extends Result> getBiDailyData(Connection connection) {
         return connection.createStatement(EXPERIMENT_DAILY_BI_INFORMATION)
-                .bind("demo_workspace_id", ProjectService.DEFAULT_WORKSPACE_ID)
                 .bind("excluded_names", DemoData.EXPERIMENTS)
                 .execute();
     }
@@ -1054,7 +1154,6 @@ class ExperimentDAO {
     public Mono<Long> getDailyCreatedCount() {
         return Mono.from(connectionFactory.create())
                 .flatMapMany(connection -> connection.createStatement(EXPERIMENT_DAILY_BI_INFORMATION)
-                        .bind("demo_workspace_id", ProjectService.DEFAULT_WORKSPACE_ID)
                         .bind("excluded_names", DemoData.EXPERIMENTS)
                         .execute())
                 .flatMap(result -> result.map((row, rowMetadata) -> row.get("experiment_count", Long.class)))
@@ -1154,4 +1253,66 @@ class ExperimentDAO {
                     .build();
         });
     }
+
+    @WithSpan
+    Mono<Void> update(@NonNull UUID id, @NonNull ExperimentUpdate experimentUpdate) {
+        log.info("Updating experiment with id '{}'", id);
+        return Mono.from(connectionFactory.create())
+                .flatMapMany(connection -> updateWithInsert(id, experimentUpdate, connection))
+                .then();
+    }
+
+    private Publisher<? extends Result> updateWithInsert(@NonNull UUID id, @NonNull ExperimentUpdate experimentUpdate,
+            Connection connection) {
+
+        ST template = buildUpdateTemplate(experimentUpdate, UPDATE);
+        String sql = template.render();
+
+        Statement statement = connection.createStatement(sql);
+        bindUpdateParams(experimentUpdate, statement);
+        statement.bind("id", id);
+
+        return makeFluxContextAware(bindUserNameAndWorkspaceContextToStream(statement));
+    }
+
+    private ST buildUpdateTemplate(ExperimentUpdate experimentUpdate, String update) {
+        ST template = new ST(update);
+
+        if (StringUtils.isNotBlank(experimentUpdate.name())) {
+            template.add("name", experimentUpdate.name());
+        }
+
+        if (experimentUpdate.metadata() != null) {
+            template.add("metadata", experimentUpdate.metadata().toString());
+        }
+
+        if (experimentUpdate.type() != null) {
+            template.add("type", experimentUpdate.type().getValue());
+        }
+
+        if (experimentUpdate.status() != null) {
+            template.add("status", experimentUpdate.status().getValue());
+        }
+
+        return template;
+    }
+
+    private void bindUpdateParams(ExperimentUpdate experimentUpdate, Statement statement) {
+        if (StringUtils.isNotBlank(experimentUpdate.name())) {
+            statement.bind("name", experimentUpdate.name());
+        }
+
+        if (experimentUpdate.metadata() != null) {
+            statement.bind("metadata", experimentUpdate.metadata().toString());
+        }
+
+        if (experimentUpdate.type() != null) {
+            statement.bind("type", experimentUpdate.type().getValue());
+        }
+
+        if (experimentUpdate.status() != null) {
+            statement.bind("status", experimentUpdate.status().getValue());
+        }
+    }
+
 }
